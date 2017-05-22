@@ -13,12 +13,12 @@ if len(sys.argv) < 1:
     print "Usage is: camonitor_to_sybil.py /path/to/sybil"
     sys.exit(0)
 
-sybil_cmd=sys.argv[1]
+sybil_cmd=sys.argv[1:]
 
 queue = Queue.Queue()
 
 def dump_data():
-    full_cmd = [sybil_cmd, "ingest", "-table", "camonitor"]
+    sybil_cmd.extend(["ingest", "-table", "camonitor"])
     samples = []
     while True:
         if exitFlag.isSet():
@@ -31,7 +31,7 @@ def dump_data():
             sample = queue.get()
             samples.append(sample)
 
-        pop = subprocess.Popen(full_cmd, stdin=subprocess.PIPE)
+        pop = subprocess.Popen(sybil_cmd, stdin=subprocess.PIPE)
         pop.communicate("\n".join(map(lambda s: json.dumps(s), samples)))
         print "SENT SAMPLES (%i)" % (len(samples))
 
