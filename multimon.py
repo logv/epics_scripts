@@ -5,9 +5,9 @@ from datetime import datetime
 import Queue
 import subprocess
 import threading
+import epics
 
 ## CONFIG 
-CAMONITOR_BIN='/home/okay/tonka/src/epics/base-3.15.5/bin/linux-x86_64/camonitor'
 SYBIL_BIN="/home/okay/tonka/src/snorkel.snap/Snorkel-0.0.20-x86_64.AppImage backend"
 SLEEP_INTERVAL=1
 DEBUG=False
@@ -23,39 +23,17 @@ class PVMonitor(object):
         self.name = name
 
     def run(self):
-        read_thread = threading.Thread(target=self.read_data)
         print "STARTING READ THREAD", self.name
-        read_thread.start()
+        self.pv = epics.pv.PV(self.name, callback=self.pv_update, auto_monitor=True)
+
+    def pv_update(self, *args, **kwargs):
+        ts = kwargs["timestamp"]
+        sample = { 
+            "value" : int(kwargs["value"]), 
+            "name" : self.name, 
+            "timestamp": int(ts)}
+        queue.put(sample)
         
-
-    def read_data(self):
-        proc = subprocess.Popen([CAMONITOR_BIN, self.name], stdout=subprocess.PIPE)
-        while True:
-            line = proc.stdout.readline()
-            if exitFlag.isSet():
-                sys.exit(0)
-                break
-
-            tokens = line.split()
-            if len(tokens) < 4:
-                continue
-
-            ts = tokens[1]
-            clock = tokens[2].split(".")[0]
-            date_string = "%Y-%m-%d %H:%M:%S"
-            full = tokens[1] + " " + clock
-            try:
-                parsed = datetime.strptime(full, date_string)
-            except:
-                print "TROUBLE PARSING", full
-                continue
-
-            from_epoch = (parsed - datetime(1970,1,1)).total_seconds()
-            sample = { "value" : int(tokens[3]), "name" : tokens[0], "timestamp": int(from_epoch)}
-            queue.put(sample)
-
-
-
 class MultiMonitor(object):
     def __init__(self, args):
         self.pv = []
